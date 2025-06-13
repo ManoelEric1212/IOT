@@ -1,31 +1,59 @@
-// ** MUI Imports
-import Card from "@mui/material/Card";
-
 import Typography from "@mui/material/Typography";
-import CardHeader from "@mui/material/CardHeader";
-import CardContent from "@mui/material/CardContent";
+
 import { Box } from "@mui/system";
 
-interface wsReturn {
+export interface wsReturn {
   temperature: number;
   Humidity: number;
 }
 
 // import io from 'socket.io-client'
 import { useEffect, useState } from "react";
-import ApexLineChart from "./components/SensorComponent";
+
 import Grid from "@mui/material/Grid";
 import { TemperatureAlertModal } from "./components/Modal";
+import { AppBar, Button, Toolbar } from "@mui/material";
+import HomeComponent from "./components/Home";
+import { TemperatureAlertTable } from "./components/TemperatureAlertTable";
+
+type View = "home" | "relatorios" | "dashboard";
+
+type dados = {
+  x: number;
+  y: number;
+};
+
+export interface seriesProps {
+  name: string;
+  data: dados[];
+}
+
+export interface AlertEntry {
+  temperature: number;
+  timestamp: string;
+  reason: string;
+}
 
 const Home = () => {
   const [message, setMessage] = useState<wsReturn | null>(null);
-  const [series, setSeries] = useState([
-    { name: "Humidity", data: [] as { x: number; y: number }[] },
+  const [currentView, setCurrentView] = useState<View>("home");
+  const [series, setSeries] = useState<seriesProps[]>([
+    { name: "Humidity", data: [] },
   ]);
   const [showAlert, setShowAlert] = useState(false);
+  const [alertData, setAlerts] = useState<AlertEntry[]>([]);
   const handleClose = () => {
     setShowAlert(false);
   };
+
+  useEffect(() => {
+    const alert: AlertEntry = {
+      temperature: 45,
+      timestamp: new Date().toLocaleString(),
+      reason: "Temperatura acima do limite (30°C)",
+    };
+    setTimeout(() => setAlerts([alert]), 3000);
+  }, []);
 
   useEffect(() => {
     // Cria a conexão WebSocket
@@ -39,6 +67,13 @@ const Home = () => {
       const newTemp = newData.temperature;
       if (newTemp > 31) {
         setShowAlert(true);
+        const alert: AlertEntry = {
+          temperature: newTemp,
+          timestamp: new Date().toLocaleString(),
+          reason: "Temperatura acima do limite (30°C)",
+        };
+
+        setAlerts((prev) => [...prev, alert]);
       }
       setSeries((prevSeries) => {
         const newSeries = [...prevSeries];
@@ -75,68 +110,38 @@ const Home = () => {
 
   return (
     <Grid container sx={{ display: "flex", flexDirection: "column" }}>
-      <Grid sx={{ display: "flex", gap: "1rem" }}>
-        <Grid>
-          <Card>
-            <CardHeader title="Temperatura" />
-            <CardContent
-              sx={{
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "space-between",
-                gap: "1.2rem",
-              }}
-            >
-              <Box>
-                <Typography sx={{ mb: 4 }}>
-                  Card destinado às leituras de temperatura
-                </Typography>
-                <Typography sx={{ color: "primary.main" }}>
-                  As leituras provenientes do sensor DHT11 com ESP 32
-                </Typography>
-              </Box>
-              <Box>
-                <Typography sx={{ fontSize: "2.5rem" }}>
-                  {message?.temperature.toFixed(2) ?? 0}
-                </Typography>
-              </Box>
-            </CardContent>
-          </Card>
-        </Grid>
-
-        <Grid>
-          <Card>
-            <CardHeader title="Humidade" />
-            <CardContent
-              sx={{
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "space-between",
-                gap: "1.2rem",
-              }}
-            >
-              <Box>
-                <Typography sx={{ mb: 4 }}>
-                  Card destinado às leituras de humidade
-                </Typography>
-                <Typography sx={{ color: "primary.main" }}>
-                  As leituras provenientes do sensor DHT11 com ESP 32
-                </Typography>
-              </Box>
-
-              <Box>
-                <Typography sx={{ fontSize: "2.5rem" }}>
-                  {message?.Humidity.toFixed(2) ?? 0}
-                </Typography>
-              </Box>
-            </CardContent>
-          </Card>
-        </Grid>
+      <Grid sx={{ paddingBottom: "1rem" }}>
+        <AppBar position="static">
+          <Toolbar sx={{ justifyContent: "space-between" }}>
+            <Typography variant="h6">Logo</Typography>
+            <Box>
+              <Button color="inherit" onClick={() => setCurrentView("home")}>
+                Início
+              </Button>
+              <Button
+                color="inherit"
+                onClick={() => setCurrentView("relatorios")}
+              >
+                Relatórios
+              </Button>
+              <Button
+                color="inherit"
+                onClick={() => setCurrentView("dashboard")}
+              >
+                Dashboard
+              </Button>
+            </Box>
+          </Toolbar>
+        </AppBar>
       </Grid>
 
-      <Grid sx={{ marginTop: "1rem" }}>
-        <ApexLineChart data={series} />
-      </Grid>
+      {currentView === "home" && (
+        <HomeComponent message={message} series={series} />
+      )}
+      {currentView === "relatorios" && (
+        <TemperatureAlertTable data={alertData} />
+      )}
+
       <TemperatureAlertModal
         open={showAlert}
         temperature={message?.temperature.toFixed(2) ?? ""}
